@@ -1,153 +1,92 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 660" width="960" height="660" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-  <title>Where the latency of ASIO-for-UMC22 comes from</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 780" width="960" height="780" role="img" aria-labelledby="title description" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="title">Understanding audio latency in ASIO-for-UMC22</title>
+  <desc id="description">Monitoring through the DAW includes input, processing and output. With 96 samples at 48 kHz, 3 ms capture requests and one extra output buffer, the driver reports 9.67 ms input plus 4 ms output, or 13.67 ms total. Loopback measured 12.67 to 13.67 ms on the tested UMC22. The diagram explains how buffer size, capture requests, output safety and calibration affect latency.</desc>
   <style>
     .bg { fill: #ffffff; }
-    .t { fill: #1f2328; }
-    .m { fill: #59636e; }
-    .line { stroke: #59636e; fill: none; }
-    .box { fill: #f6f8fa; stroke: #d1d9e0; }
-    .fixed { fill: #eaeef2; stroke: #818b98; }
-    .in { fill: #ddf4ff; stroke: #0969da; }
-    .out { fill: #fff1e5; stroke: #bc4c00; }
-    .ink-in { fill: #0969da; }
-    .ink-out { fill: #bc4c00; }
-    .ink-fixed { fill: #59636e; }
+    .text { fill: #1f2328; }
+    .muted { fill: #59636e; }
+    .line { stroke: #818b98; fill: none; }
+    .divider { stroke: #d1d9e0; }
+    .neutral { fill: #f6f8fa; stroke: #d1d9e0; }
+    .input { fill: #ddf4ff; stroke: #0969da; }
+    .output { fill: #fff1e5; stroke: #bc4c00; }
+    .arrow { fill: #818b98; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #0d1117; }
-      .t { fill: #e6edf3; }
-      .m { fill: #9198a1; }
+      .text { fill: #e6edf3; }
+      .muted { fill: #9198a1; }
       .line { stroke: #9198a1; }
-      .box { fill: #161b22; stroke: #3d444d; }
-      .fixed { fill: #262c36; stroke: #9198a1; }
-      .in { fill: #0c2d4f; stroke: #4493f8; }
-      .out { fill: #3d1d00; stroke: #f0883e; }
-      .ink-in { fill: #4493f8; }
-      .ink-out { fill: #f0883e; }
-      .ink-fixed { fill: #9198a1; }
+      .divider { stroke: #3d444d; }
+      .neutral { fill: #161b22; stroke: #3d444d; }
+      .input { fill: #0c2d4f; stroke: #4493f8; }
+      .output { fill: #3d1d00; stroke: #f0883e; }
+      .arrow { fill: #9198a1; }
     }
   </style>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" class="ink-fixed"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="arrow"/>
     </marker>
   </defs>
+  <rect class="bg" width="960" height="780" rx="8"/>
 
-  <rect class="bg" width="960" height="660" rx="8"/>
+  <text x="28" y="36" class="text" font-size="24" font-weight="600">Understanding audio latency</text>
+  <text x="28" y="62" class="muted" font-size="15">Settings change waiting time. The latency report helps the DAW place recordings in time.</text>
 
-  <text x="24" y="34" class="t" font-size="19" font-weight="600">Where the latency comes from</text>
-  <text x="24" y="55" class="m" font-size="13">Example: 96-sample buffers (2 ms at 48 kHz) with both optional settings on: CaptureBufferMs=3 and one extra output buffer</text>
+  <text x="28" y="101" class="text" font-size="17" font-weight="600">1. When you listen to the input through the DAW</text>
+  <g font-size="15">
+    <rect class="input" x="28" y="118" width="280" height="102" rx="7"/>
+    <text x="44" y="145" class="text" font-size="17" font-weight="600">Input path</text>
+    <text x="44" y="171" class="text">Input jack → interface → USB</text>
+    <text x="44" y="197" class="muted">Recorded audio waits for the DAW.</text>
 
-  <!-- 1. The signal path -->
-  <text x="24" y="90" class="t" font-size="14" font-weight="600">1. The path of a sound, from the input jack to the speakers</text>
-  <g font-size="12" text-anchor="middle">
-    <rect class="fixed" x="24" y="104" width="130" height="128" rx="6"/>
-    <text x="89" y="128" class="t" font-size="13" font-weight="600">Input jack</text>
-    <text x="89" y="150" class="m">converter (ADC)</text>
-    <text x="89" y="166" class="m">turns sound</text>
-    <text x="89" y="182" class="m">into samples</text>
+    <rect class="neutral" x="340" y="118" width="280" height="102" rx="7"/>
+    <text x="356" y="145" class="text" font-size="17" font-weight="600">Your DAW</text>
+    <text x="356" y="171" class="text">Processes each audio buffer.</text>
+    <text x="356" y="197" class="muted">Some plugins add further delay.</text>
 
-    <rect class="fixed" x="180" y="104" width="130" height="128" rx="6"/>
-    <text x="245" y="128" class="t" font-size="13" font-weight="600">Windows USB</text>
-    <text x="245" y="150" class="m">driver records in</text>
-    <text x="245" y="166" class="m">blocks: 10 ms, or</text>
-    <text x="245" y="182" class="m">3 ms with</text>
-    <text x="245" y="198" class="m">CaptureBufferMs=3</text>
-
-    <rect class="in" x="336" y="104" width="130" height="128" rx="6" stroke-dasharray="5 3"/>
-    <text x="401" y="128" class="t" font-size="13" font-weight="600">Capture queue</text>
-    <text x="401" y="150" class="m">recorded input</text>
-    <text x="401" y="166" class="m">waits here; input</text>
-    <text x="401" y="182" class="m">alignment skips what</text>
-    <text x="401" y="198" class="m">always waited too</text>
-    <text x="401" y="214" class="m">long, keeps a reserve</text>
-
-    <rect class="in" x="492" y="104" width="130" height="128" rx="6"/>
-    <text x="557" y="128" class="t" font-size="13" font-weight="600">Input buffer</text>
-    <text x="557" y="150" class="m">the DAW receives</text>
-    <text x="557" y="166" class="m">96 samples (2 ms)</text>
-    <text x="557" y="182" class="m">at once, so it waits</text>
-    <text x="557" y="198" class="m">until all arrived</text>
-
-    <rect class="box" x="648" y="104" width="130" height="128" rx="6"/>
-    <text x="713" y="128" class="t" font-size="13" font-weight="600">Your DAW</text>
-    <text x="713" y="150" class="m">processes the input</text>
-    <text x="713" y="166" class="m">and returns an</text>
-    <text x="713" y="182" class="m">output buffer</text>
-    <text x="713" y="198" class="m">(takes no extra time)</text>
-
-    <rect class="out" x="804" y="104" width="132" height="128" rx="6"/>
-    <text x="870" y="128" class="t" font-size="13" font-weight="600">Output queue</text>
-    <text x="870" y="150" class="m">1 buffer playing</text>
-    <text x="870" y="166" class="m">+ extra buffers,</text>
-    <text x="870" y="182" class="m">then USB, DAC and</text>
-    <text x="870" y="198" class="m">the output jack</text>
+    <rect class="output" x="652" y="118" width="280" height="102" rx="7"/>
+    <text x="668" y="145" class="text" font-size="17" font-weight="600">Output path</text>
+    <text x="668" y="171" class="text">Playback queue → USB → interface</text>
+    <text x="668" y="197" class="muted">Sound reaches the output jack.</text>
   </g>
   <g class="line" stroke-width="1.5" marker-end="url(#arrow)">
-    <line x1="156" y1="163" x2="177" y2="163"/>
-    <line x1="312" y1="163" x2="333" y2="163"/>
-    <line x1="468" y1="163" x2="489" y2="163"/>
-    <line x1="624" y1="163" x2="645" y2="163"/>
-    <line x1="780" y1="163" x2="801" y2="163"/>
+    <path d="M314,168 H332"/>
+    <path d="M626,168 H644"/>
   </g>
+  <text x="28" y="243" class="muted" font-size="14">Processing takes time and must meet the audio deadline. Direct hardware monitoring bypasses the DAW.</text>
 
-  <!-- 2. The round trip as a time line -->
-  <text x="24" y="266" class="t" font-size="14" font-weight="600">2. The same path as time: what the DAW is told, and what a loopback cable measures</text>
+  <text x="28" y="283" class="text" font-size="17" font-weight="600">2. Example: driver report, excluding extra DAW or plugin latency</text>
+  <text x="28" y="308" class="muted" font-size="14">96 samples at 48 kHz = 2 ms per buffer · CaptureBufferMs=3 (accepted) · ExtraOutputBuffers=1 · Zero offsets</text>
+  <rect class="input" x="28" y="324" width="430" height="74" rx="7"/>
+  <text x="44" y="348" class="text" font-size="14">Input estimate</text>
+  <text x="44" y="381" class="text" font-size="27" font-weight="600">9.67 ms</text>
+  <text x="480" y="372" class="muted" font-size="26" text-anchor="middle">+</text>
+  <rect class="output" x="502" y="324" width="430" height="74" rx="7"/>
+  <text x="518" y="348" class="text" font-size="14">Output estimate, including one extra buffer</text>
+  <text x="518" y="381" class="text" font-size="27" font-weight="600">4.00 ms</text>
+  <rect class="neutral" x="28" y="410" width="904" height="52" rx="7"/>
+  <text x="44" y="443" class="text" font-size="17" font-weight="600">Reported total</text>
+  <text x="916" y="444" class="text" font-size="24" font-weight="600" text-anchor="end">9.67 + 4.00 = 13.67 ms</text>
+  <text x="28" y="486" class="muted" font-size="14">Loopback measured 12.67–13.67 ms for this setup; timing varies between starts.</text>
+  <text x="28" y="508" class="muted" font-size="14">The cable test measures the total. It does not measure input and output separately.</text>
 
-  <!-- Brackets: 64.4 px per ms, starting at x = 40 -->
-  <g class="line" stroke-width="1.5">
-    <path d="M40,306 v-8 h621 v8"/>
-    <path d="M665,306 v-8 h255 v8"/>
+  <text x="28" y="548" class="text" font-size="17" font-weight="600">3. What each setting changes</text>
+  <g font-size="14">
+    <text x="44" y="584" class="text" font-weight="600">BufferSize</text>
+    <text x="278" y="584" class="text">Smaller buffers mean less waiting and a shorter processing deadline.</text>
+    <line x1="28" y1="603" x2="932" y2="603" class="divider"/>
+
+    <text x="44" y="625" class="text" font-weight="600">CaptureBufferMs=3</text>
+    <text x="278" y="625" class="text">Requests smaller USB capture batches. Total input delay is still more than 3 ms.</text>
+    <line x1="28" y1="644" x2="932" y2="644" class="divider"/>
+
+    <text x="44" y="666" class="text" font-weight="600">ExtraOutputBuffers</text>
+    <text x="278" y="666" class="text">Adds playback safety. Each extra buffer adds 2 ms in this example.</text>
+    <line x1="28" y1="685" x2="932" y2="685" class="divider"/>
+
+    <text x="44" y="707" class="text" font-weight="600">Latency offsets</text>
+    <text x="278" y="707" class="text">Correct recording placement; do not shorten the delay you hear.</text>
   </g>
-  <text x="350" y="290" class="ink-in" font-size="14" font-weight="600" text-anchor="middle">Input latency about 10 ms</text>
-  <text x="792" y="290" class="ink-out" font-size="14" font-weight="600" text-anchor="middle">Output latency 4 ms</text>
-
-  <g font-size="12" text-anchor="middle">
-    <rect class="fixed" x="40" y="312" width="365" height="58" rx="4"/>
-    <text x="222" y="336" class="t" font-weight="600">USB driver + both converters</text>
-    <text x="222" y="354" class="m">about 6 ms, the same at every buffer size</text>
-
-    <rect class="in" x="405" y="312" width="129" height="58" rx="4" stroke-dasharray="5 3"/>
-    <text x="469" y="336" class="t" font-weight="600">Reserve</text>
-    <text x="469" y="354" class="m">1 buffer = 2 ms</text>
-
-    <rect class="in" x="534" y="312" width="129" height="58" rx="4"/>
-    <text x="598" y="336" class="t" font-weight="600">Input buffer</text>
-    <text x="598" y="354" class="m">1 buffer = 2 ms</text>
-
-    <rect class="out" x="663" y="312" width="129" height="58" rx="4"/>
-    <text x="727" y="336" class="t" font-weight="600">Output buffer</text>
-    <text x="727" y="354" class="m">1 buffer = 2 ms</text>
-
-    <rect class="out" x="792" y="312" width="129" height="58" rx="4" stroke-dasharray="5 3"/>
-    <text x="856" y="336" class="t" font-weight="600">Extra buffer</text>
-    <text x="856" y="354" class="m">1 buffer = 2 ms</text>
-  </g>
-
-  <g class="line" stroke-width="1.5">
-    <path d="M40,378 v8 h881 v-8"/>
-  </g>
-  <text x="480" y="406" class="t" font-size="14" font-weight="600" text-anchor="middle">Round trip about 14 ms: the driver reports this total to the DAW</text>
-  <text x="480" y="426" class="m" font-size="12" text-anchor="middle">The DAW moves recordings earlier by it, so what you record lines up with what you heard. On a UMC22 it matches a loopback measurement.</text>
-  <text x="480" y="443" class="m" font-size="12" text-anchor="middle">With Windows' default capture, the grey block and the reserve become one wait of about 12 ms: about 18 ms in this example.</text>
-
-  <!-- 3. What each setting changes -->
-  <text x="24" y="484" class="t" font-size="14" font-weight="600">3. What each setting changes</text>
-  <g font-size="13">
-    <rect class="in" x="24" y="500" width="14" height="14" rx="3"/>
-    <text x="48" y="512" class="t" font-weight="600">Buffer size</text>
-    <text x="230" y="512" class="m">Every buffer block grows: input, reserve, output and extra. Larger is safer against crackles, but slower.</text>
-
-    <rect class="fixed" x="24" y="532" width="14" height="14" rx="3"/>
-    <text x="48" y="544" class="t" font-weight="600">CaptureBufferMs=3</text>
-    <text x="230" y="544" class="m">Shrinks the USB wait from about 12 ms to about 6 ms plus a 1-buffer reserve. Helps at 48, 96 and 144 samples.</text>
-
-    <rect class="out" x="24" y="564" width="14" height="14" rx="3"/>
-    <text x="48" y="576" class="t" font-weight="600">ExtraOutputBuffers</text>
-    <text x="230" y="576" class="m">Adds output buffers only. Each lets the DAW be one buffer late without a crackle, and adds one buffer.</text>
-
-    <rect class="box" x="24" y="596" width="14" height="14" rx="3"/>
-    <text x="48" y="608" class="t" font-weight="600">Latency offsets</text>
-    <text x="230" y="608" class="m">Only change the number reported to the DAW, never the sound. A UMC22 needs none.</text>
-  </g>
-  <text x="24" y="640" class="m" font-size="11">Dashed blocks are optional: they appear only with CaptureBufferMs=3 or extra output buffers.</text>
+  <text x="28" y="752" class="muted" font-size="14">Measure again after changing the device, sample rate, buffers, capture setting or output safety.</text>
 </svg>

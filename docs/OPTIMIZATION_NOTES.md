@@ -74,7 +74,9 @@ queued output buffer.
 - Earlier runs of the same settings also measured 15.67 to 16.67 ms (default, 96 samples) and one
   704-sample start at 48 kHz/144 samples that alignment had not yet trimmed.
 - 44.1 kHz at 144 samples with 3 ms capture over-reports by 1.6 to 2.5 ms; other interfaces and request
-  durations are unmeasured. The latency offsets correct both, for every buffer size at once.
+  durations are unmeasured. Latency offsets can correct the remaining error for a chosen configuration.
+  Recheck calibration after changing the device, sample rate, buffer size, capture setting or output
+  safety: the residual error can change, and a fixed offset cannot remove variation between starts.
 
 ## 1.4.1 optimization build
 
