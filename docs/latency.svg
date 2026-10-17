@@ -5,6 +5,7 @@
     .bg { fill: #ffffff; }
     .text { fill: #1f2328; }
     .muted { fill: #59636e; }
+    .connector { stroke: #59636e; stroke-width: 2; fill: none; }
     .divider { stroke: #d1d9e0; }
     .neutral { fill: #f6f8fa; stroke: #d1d9e0; }
     .input { fill: #ddf4ff; stroke: #0969da; }
@@ -13,6 +14,7 @@
       .bg { fill: #0d1117; }
       .text { fill: #e6edf3; }
       .muted { fill: #9198a1; }
+      .connector { stroke: #9198a1; }
       .divider { stroke: #3d444d; }
       .neutral { fill: #161b22; stroke: #3d444d; }
       .input { fill: #0c2d4f; stroke: #4493f8; }
@@ -29,30 +31,34 @@
 
   <text x="28" y="166" class="text" font-size="18" font-weight="600">1. Input: getting sound into your audio program</text>
   <rect class="input" x="28" y="182" width="904" height="184" rx="7"/>
+  <rect class="neutral" x="648" y="136" width="268" height="58" rx="7"/>
+  <text x="664" y="159" class="text" font-size="15" font-weight="600">3 ms USB capture requests</text>
+  <text x="664" y="181" class="muted" font-size="14">used in these cable tests</text>
+  <path d="M694,195 V209 M689,204 L694,209 L699,204" class="connector"/>
   <g class="text" font-size="30" font-weight="600">
-    <text x="60" y="224">2 ms</text>
-    <text x="362" y="224">2 ms</text>
-    <text x="664" y="224">6 ms</text>
+    <text x="60" y="238">2 ms</text>
+    <text x="362" y="238">2 ms</text>
+    <text x="664" y="238">6 ms</text>
   </g>
   <g class="text" font-size="16" font-weight="600">
-    <text x="60" y="253">Fill an input buffer</text>
-    <text x="362" y="253">Keep a little input ready</text>
-    <text x="664" y="253">Other delay in the estimate</text>
+    <text x="60" y="269">Fill an input buffer</text>
+    <text x="362" y="269">Keep a little input ready</text>
+    <text x="664" y="269">Other delay in the estimate</text>
   </g>
   <g class="muted" font-size="15">
-    <text x="60" y="280">Collect one chunk of sound</text>
-    <text x="60" y="301">before passing it to the program.</text>
-    <text x="362" y="280">Keep one chunk as a reserve</text>
-    <text x="362" y="301">in case new input arrives late.</text>
-    <text x="664" y="280">USB and interface delays, estimated</text>
-    <text x="664" y="301">from UMC22 cable tests.</text>
+    <text x="60" y="294">Collect one chunk of sound</text>
+    <text x="60" y="315">before passing it to the program.</text>
+    <text x="362" y="294">Keep one chunk as a reserve</text>
+    <text x="362" y="315">in case new input arrives late.</text>
+    <text x="664" y="294">USB and interface delays, estimated</text>
+    <text x="664" y="315">with the 3 ms USB setting active.</text>
   </g>
   <g class="muted" font-size="27" text-anchor="middle">
-    <text x="326" y="225">+</text>
-    <text x="628" y="225">+</text>
+    <text x="326" y="239">+</text>
+    <text x="628" y="239">+</text>
   </g>
   <text x="480" y="345" class="text" font-size="23" font-weight="600" text-anchor="middle">2 + 2 + 6 = about 10 ms input</text>
-  <text x="28" y="391" class="muted" font-size="14">The 6 ms comes from measurements. The buffer settings alone cannot tell us this part.</text>
+  <text x="28" y="391" class="muted" font-size="14">The 3 ms setting is already reflected in the 6 ms estimate. Do not add another 3 ms.</text>
 
   <text x="28" y="431" class="text" font-size="18" font-weight="600">2. Output: getting sound back to the output jack</text>
   <rect class="output" x="28" y="447" width="904" height="112" rx="7"/>
@@ -80,7 +86,7 @@
     <text x="278" y="786" class="text">Smaller chunks mean less waiting, but less time to finish processing.</text>
     <line x1="28" y1="800" x2="932" y2="800" class="divider"/>
     <text x="44" y="821" class="text" font-weight="600">CaptureBufferMs</text>
-    <text x="278" y="821" class="text">Requests USB capture batches. A 3 ms batch is only part of the input delay.</text>
+    <text x="278" y="821" class="text">Changes USB batching. Its effect is included in the measured allowance above.</text>
     <line x1="28" y1="835" x2="932" y2="835" class="divider"/>
     <text x="44" y="856" class="text" font-weight="600">ExtraOutputBuffers</text>
     <text x="278" y="856" class="text">Adds playback safety. Each extra buffer adds 2 ms in this example.</text>

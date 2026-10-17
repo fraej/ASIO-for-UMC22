@@ -97,9 +97,11 @@ The driver reports an **input latency** and an **output latency** so the DAW can
 
 For example, at **48 kHz with 96-sample buffers**, each buffer holds **2 ms** of audio. With 3 ms USB capture requests, the driver estimates the input delay as:
 
-**2 ms to fill an input buffer + 2 ms kept ready as a reserve + about 6 ms from measurements = about 10 ms input.**
+**2 ms to fill an input buffer + 2 ms kept ready as a reserve + about 6 ms estimated with the 3 ms USB setting = about 10 ms input.**
 
-The final 6 ms is an allowance for other USB and interface delays, based on UMC22 cable tests. It accounts for the remaining delay in the model; it cannot be calculated from the buffer size alone. One normal output buffer and one extra safety buffer then add **2 + 2 = 4 ms**, giving **about 10 + 4 = 14 ms total**.
+The final 6 ms is an allowance for other USB and interface delays, based on UMC22 cable tests **with `CaptureBufferMs=3` active**. The 3 ms describes a USB capture batch, not a fixed extra wait for every sample. Its effect is already reflected in the measured allowance, so **do not add another 3 ms**. The allowance cannot be calculated from the buffer settings alone.
+
+One normal output buffer and one extra safety buffer then add **2 + 2 = 4 ms**, giving **about 10 + 4 = 14 ms total**.
 
 All times in this example and table are **rounded to whole milliseconds**. These driver estimates use zero calibration offsets and assume Windows accepts the 3 ms capture requests. They exclude any extra latency added by the DAW or plugins:
 
