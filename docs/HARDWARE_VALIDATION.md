@@ -6,7 +6,7 @@ The automated tests simulate the KS device and verify packet ownership, errors, 
 
 Record Windows version, CPU, DAW/version, USB port/controller, device hardware IDs, sample rate, buffer size, and DLL version. The default device filter expects `VID_08BB&PID_2902`, or the device named by `DeviceName`. Record the error from the driver if initialization fails; the driver requires both PCM pins on the same KS filter. `build/tools/latency_test.exe --info` prints what the registered driver reports to hosts, and the control panel shows which Windows driver is bound to the device (`usbaudio` for Windows' USB Audio 1.0 driver).
 
-Status: version 1.0.0 is the first public release.
+Status: version 1.0.0 is the first public release; 1.0.1 adds the measured latency model (see [optimization notes](OPTIMIZATION_NOTES.md#built-in-latency-model)).
 
 The development builds before it (numbered 1.4 to 1.5 below) were measured as follows. Development build 1.4 streams on a UMC22 under Windows 11 in a DAW, and in 3-4 second benchmark runs at 48, 96, and 192 samples (48 kHz) and 96 samples (44.1 kHz) with no dropouts on an idle system. Injected host stalls of 10 and 30 ms were each counted as one dropout, and the input queued in Windows' driver returned to 7-10 ms afterwards (without the dropout handling: about 100 ms). 48-sample buffers can crackle under a full DAW session load. The physical round trip, long sessions, and other interfaces are not yet measured.
 

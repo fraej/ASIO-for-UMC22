@@ -2,7 +2,7 @@
 
 A small 64-bit Windows ASIO driver for the Behringer UMC22 and other USB audio interfaces built on the same chip. It talks to the device through WDM Kernel Streaming, without the Windows audio mixer, and gives ASIO hosts such as DAWs stereo input and output at 44.1 or 48 kHz. Audio is exposed to the host as planar 32-bit floats and transferred to the device as interleaved 16-bit PCM.
 
-Version 1.0.0 is the first public release. It streams on a UMC22 under Windows 11 in a DAW; its latest engine changes were measured on a UMC22 in short benchmark runs (see [optimization notes](docs/OPTIMIZATION_NOTES.md)). The automated tests simulate Windows audio I/O. Long sessions and other interfaces are not yet systematically validated; see [hardware validation](docs/HARDWARE_VALIDATION.md).
+Version 1.0.1 adds latency reporting measured on a UMC22 to the first public release, 1.0.0. It streams on a UMC22 under Windows 11 in a DAW; its latest engine changes were measured on a UMC22 in short benchmark runs (see [optimization notes](docs/OPTIMIZATION_NOTES.md)). The automated tests simulate Windows audio I/O. Long sessions and other interfaces are not yet systematically validated; see [hardware validation](docs/HARDWARE_VALIDATION.md).
 
 ## Features
 
@@ -77,7 +77,7 @@ Open the driver's control panel from your DAW's audio settings (often a button n
 
 Close the host, set `CaptureBufferMs=3` in `asio_settings.ini`, and reopen the host. Once audio buffers are open, the control panel shows whether Windows accepted the request. If the request is rejected, the driver continues with Windows' default. Set it back to `0` and reopen the host to restore the default behavior.
 
-This uses Microsoft's [capture buffer duration property](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-audio-buffer-duration). Shorter requests can reduce capture latency, but increase USB processing frequency. On a UMC22, 3 ms requests together with input alignment lowered the recorded input waiting for the host from about 11 ms to 5 ms at 48 samples, and to 7 ms at 96 samples (see [optimization notes](docs/OPTIMIZATION_NOTES.md#input-alignment-and-extra-output-buffers)). Acceptance does not prove a particular physical delay or stable operation at 48 samples. Compare `0`, `5`, and `3` with the loopback tool and a representative DAW workload, then recalibrate the latency offsets for the setting you keep. The driver retains its original latency estimate until calibration; it does not report the requested duration as a measurement, so with 3 ms requests the reported input latency overstates the real one by several milliseconds until you calibrate.
+This uses Microsoft's [capture buffer duration property](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-audio-buffer-duration). Shorter requests can reduce capture latency, but increase USB processing frequency. On a UMC22, 3 ms requests together with input alignment lowered the recorded input waiting for the host from about 11 ms to 5 ms at 48 samples, and to 7 ms at 96 samples (see [optimization notes](docs/OPTIMIZATION_NOTES.md#input-alignment-and-extra-output-buffers)). Acceptance does not prove stable operation at 48 samples. The driver reports the input delay measured on a UMC22 for accepted 3 ms requests at buffers up to 2.5 ms and at exactly 3 ms (see [Latency](#latency)). At other buffer sizes the gain varied between starts, so the driver reports the default there and over-reports by up to about 3 ms; calibrate if you use them. Other durations (4–10 ms) are unmeasured and reported as the default, so check them with the loopback tool.
 
 ### Selecting a device
 
@@ -91,11 +91,11 @@ DeviceName=USB Audio CODEC
 
 The latency reported to the DAW is made of what the driver can see:
 
-- **Input:** one buffer, plus a baseline estimate of 10 ms when the device uses Windows' USB Audio 1.0 driver (`usbaudio.sys`). This reflects the default capture buffering observed on a UMC22. `CaptureBufferMs` can request a shorter duration, but does not automatically change this estimate; use loopback calibration to account for the actual delay.
+- **Input:** one buffer, plus the delay measured through a loopback cable on a UMC22 when the device uses Windows' USB Audio 1.0 driver (`usbaudio.sys`), converters included: 12.17 ms with default capture. With accepted `CaptureBufferMs=3`, input alignment leaves one more buffer plus 5.67 ms for buffers up to 2.5 ms, and 5.67 ms when one 3 ms block fills exactly one buffer (144 samples at 48 kHz). Other buffer sizes report the default.
 - **Output:** one buffer, queued while the previous one plays, plus one buffer per extra output buffer.
-- **Calibration:** USB transfer and converter delays are invisible to the driver. `InputLatencyOffset` and `OutputLatencyOffset` add them. DAWs shift recordings by the reported input plus output latency, so a correct total keeps recordings in time.
+- **Calibration:** DAWs shift recordings by the reported input plus output latency, so a correct total keeps recordings in time. On a UMC22 the built-in figures matched the measured round trip at 48–192 samples and every extra-buffer setting, within half a buffer, so no offsets are needed. Other interfaces, USB stacks or `CaptureBufferMs` values may differ: `InputLatencyOffset` and `OutputLatencyOffset` correct what the loopback tool measures, for every buffer size at once.
 
-At 96 samples and 48 kHz the uncalibrated report is 12 ms input and 2 ms output, or 4 ms output with one extra output buffer. The driver also answers `kAsioGetInternalBufferSamples` with the part beyond the ASIO buffers.
+At 96 samples and 48 kHz the report is 14.17 ms input and 2 ms output with default capture, 9.67 ms input with 3 ms capture, and 2 ms more output per extra output buffer. Each start can land up to half a buffer either side of the figure, depending on how the USB blocks line up. The driver also answers `kAsioGetInternalBufferSamples` with the part beyond the ASIO buffers.
 
 ### Input alignment
 
@@ -136,7 +136,7 @@ Build with MinGW-w64:
 make -j2
 ```
 
-This produces `asio_for_umc22.dll`, with the MinGW compiler runtimes linked in. `getDriverVersion()` returns `10000` for version 1.0.0. See [optimization notes](docs/OPTIMIZATION_NOTES.md) for the changes and their validation limits.
+This produces `asio_for_umc22.dll`, with the MinGW compiler runtimes linked in. `getDriverVersion()` returns `10001` for version 1.0.1. See [optimization notes](docs/OPTIMIZATION_NOTES.md) for the changes and their validation limits.
 
 Run the portable conversion tests with a native C++ compiler, and the Windows tests with Wine:
 

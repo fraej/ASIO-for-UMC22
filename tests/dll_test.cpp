@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     assert(getClass(clsid, IID_IClassFactory, (void**)&factory) == S_OK);
     IASIO* driver = NULL;
     assert(factory->CreateInstance(NULL, clsid, (void**)&driver) == S_OK);
-    assert(driver->getDriverVersion() == 10000);
+    assert(driver->getDriverVersion() == 10001);
     char name[64];
     driver->getDriverName(name);
     assert(strcmp(name, "ASIO-for-UMC22") == 0);

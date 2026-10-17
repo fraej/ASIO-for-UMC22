@@ -37,9 +37,44 @@ With the host made late on purpose about 100 times per run (a busy loop in every
   about 5.7 ms (48 samples) and 6.7 ms (96 samples) of input was queued.
 - Even with 126–170 dropouts per run, queued input stayed at its usual 10–11 ms: dropout recovery and input
   alignment did not drift.
-- The reported input latency keeps its 10 ms baseline estimate, so with 3 ms requests it overstates the real
+- At the time, the reported input latency kept its 10 ms baseline estimate (see [Built-in latency model](#built-in-latency-model) for its replacement), so with 3 ms requests it overstated the real
   input latency until the loopback tool calibrates it.
 - The physical round trip, long sessions and DAW load are not yet measured.
+
+## Built-in latency model
+
+Measured on 2026-10-17 through a loopback cable (UMC22 Out 2 to In 2), 12 pulses per run, two runs per row,
+with no latency offsets. The driver reports one input buffer plus the delay below, and one output buffer per
+queued output buffer.
+
+| Capture | Buffer | Input delay beyond the buffer |
+| --- | --- | --- |
+| Windows default | any | 12.17 ms (starts land 0.5 ms either side) |
+| `CaptureBufferMs=3` | up to 2.5 ms | one more buffer plus 5.67 ms |
+| `CaptureBufferMs=3` | exactly 3 ms (144 samples at 48 kHz) | 5.67 ms |
+| `CaptureBufferMs=3` | other sizes | default (the gain varied) |
+
+| Rate | Capture | Buffer | Extra | Reported | Measured |
+| --- | --- | --- | --- | --- | --- |
+| 48 kHz | 3 ms | 48 | 0 | 8.67 ms | 8.67, 8.67 ms |
+| 48 kHz | 3 ms | 96 | 0 | 11.67 ms | 11.67, 11.67 ms |
+| 48 kHz | 3 ms | 144 | 0 | 11.67 ms | 11.67, 11.67 ms |
+| 48 kHz | 3 ms | 192 | 0 | 20.17 ms | 19.67, 19.65 ms |
+| 48 kHz | 3 ms | 96 | 1 | 13.67 ms | 13.67, 12.67 ms |
+| 48 kHz | 3 ms | 96 | 2 | 15.67 ms | 14.69, 15.67 ms |
+| 48 kHz | default | 48 | 0 | 14.17 ms | 13.67, 13.67 ms |
+| 48 kHz | default | 96 | 0 | 16.17 ms | 15.67, 15.67 ms |
+| 48 kHz | default | 192 | 0 | 20.17 ms | 19.67, 19.67 ms |
+| 48 kHz | default | 96 | 1 | 18.17 ms | 17.67, 17.67 ms |
+| 44.1 kHz | 3 ms | 96 | 0 | 12.20 ms | 12.72, 12.72 ms |
+| 44.1 kHz | 3 ms | 144 | 0 | 18.71 ms | 16.98, 15.99 ms |
+| 44.1 kHz | default | 96 | 0 | 16.53 ms | 17.05, 17.07 ms |
+
+- Some starts land one buffer apart, depending on how the USB blocks line up; no fixed figure removes that.
+- Earlier runs of the same settings also measured 15.67 to 16.67 ms (default, 96 samples) and one
+  704-sample start at 48 kHz/144 samples that alignment had not yet trimmed.
+- 44.1 kHz at 144 samples with 3 ms capture over-reports by 1.6 to 2.5 ms; other interfaces and request
+  durations are unmeasured. The latency offsets correct both, for every buffer size at once.
 
 ## 1.4.1 optimization build
 

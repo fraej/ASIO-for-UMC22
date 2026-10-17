@@ -12,8 +12,8 @@
 static const GUID CLSID_AsioForUmc22 = {
     0xb2a0f51e, 0x32e8, 0x48d3, { 0x89, 0x02, 0x6c, 0xd4, 0x52, 0xd7, 0xef, 0x31 }
 };
-#define DRIVER_VERSION_TEXT "1.0.0"
-#define DRIVER_VERSION_TEXT_W L"1.0.0"
+#define DRIVER_VERSION_TEXT "1.0.1"
+#define DRIVER_VERSION_TEXT_W L"1.0.1"
 static HMODULE g_hModule = NULL;
 static volatile LONG g_objectCount = 0;
 static volatile LONG g_serverLocks = 0;
@@ -340,6 +340,25 @@ class MiniAsioDriver : public IASIO {
         return true;
     }
 
+    // Input delay beyond the current buffer under Windows' usbaudio driver, measured
+    // through a loopback cable on a UMC22 with both converters included: 12.17 ms with
+    // Windows' default capture. With accepted 3 ms capture requests, input alignment
+    // leaves one more buffer plus 5.67 ms for buffers up to 2.5 ms, and only 5.67 ms
+    // when one 3 ms block fills exactly one buffer (144 samples at 48 kHz). Other
+    // buffers varied between those and the default, so they report the default, as do
+    // unmeasured request durations. Each start can land half a buffer either side.
+    // Other device drivers leave inputDelaySamples at 0 and rely on the offsets.
+    bool AlignedCapture() const {
+        return m_captureBufferMs == 3 && m_engine.hCapturePin && !m_engine.captureBufferError &&
+               (m_bufferSize * 1000.0 <= 2.5 * m_sampleRate || m_bufferSize * 1000.0 == 3.0 * m_sampleRate);
+    }
+    long InputDelaySamples() const {
+        if (!m_engine.inputDelaySamples) return 0;
+        long fixed = (long)(5.67 * m_sampleRate / 1000.0 + 0.5);
+        if (AlignedCapture()) return (m_bufferSize * 1000.0 <= 2.5 * m_sampleRate ? m_bufferSize : 0) + fixed;
+        return (long)(12.17 * m_sampleRate / 1000.0 + 0.5);
+    }
+
     long WithOffset(long samples, long offsetUs) const {
         double result = samples + offsetUs * m_sampleRate / 1000000.0;
         return result > 0 ? (long)(result + 0.5) : 0;
@@ -434,7 +453,7 @@ public:
         return m_configurationValid ? ASIOTrue : ASIOFalse;
     }
     void getDriverName(char* name) override { if (name) strcpy(name, "ASIO-for-UMC22"); }
-    long getDriverVersion() override { return 10000; } // 1.0.0
+    long getDriverVersion() override { return 10001; } // 1.0.1
     void getErrorMessage(char* message) override {
         if (!message) return;
         DWORD error = m_error.load();
@@ -476,13 +495,12 @@ public:
     }
     ASIOError getLatencies(long* input, long* output) override {
         if (!input || !output) return ASE_InvalidParameter;
-        // Input waits for a full buffer plus the device driver's baseline estimate
-        // (10 ms for default USB Audio 1.0 capture). Output plays after the buffers
-        // queued ahead of it: one, plus any extra output buffers. USB transfer and
-        // converter delays are invisible to the driver; the INI offsets add them after
-        // a loopback measurement (tools/latency_test).
+        // Input waits for a full buffer plus the measured delay of the USB driver and
+        // converters (InputDelaySamples). Output plays after the buffers queued ahead
+        // of it: one, plus any extra output buffers. The INI offsets correct what a
+        // loopback measurement (tools/latency_test) finds on other setups.
         long queued = m_buffersReady ? (long)m_engine.renderPackets - 1 : 1 + m_extraOutputBuffers;
-        *input = WithOffset(m_bufferSize + (long)m_engine.inputDelaySamples, m_inputOffsetUs);
+        *input = WithOffset(m_bufferSize + InputDelaySamples(), m_inputOffsetUs);
         *output = WithOffset(m_bufferSize * queued, m_outputOffsetUs);
         return ASE_OK;
     }
@@ -645,7 +663,9 @@ public:
         else if (m_engine.captureBufferError)
             snprintf(captureDuration, sizeof(captureDuration), "%ld ms rejected (error %lu); Windows default retained",
                      m_captureBufferMs, (unsigned long)m_engine.captureBufferError);
-        else snprintf(captureDuration, sizeof(captureDuration), "%ld ms accepted; actual delay needs loopback calibration", m_captureBufferMs);
+        else snprintf(captureDuration, sizeof(captureDuration), "%ld ms accepted; %s", m_captureBufferMs,
+                      AlignedCapture() ? "measured UMC22 input delay reported"
+                                       : "default input delay reported (gain varies at this size)");
         long queued = m_buffersReady ? (long)m_engine.renderPackets - 1 : 1 + m_extraOutputBuffers;
         char alignment[160];
         if (stats.queuedInputSamples < 0) snprintf(alignment, sizeof(alignment), "not measured yet");
@@ -714,11 +734,12 @@ public:
         else if (m_engine.captureBufferError)
             context.Add(NULL, 0, "USB capture", panel::kWarning, "%ld ms rejected (error %lu)", m_captureBufferMs,
                         (unsigned long)m_engine.captureBufferError);
-        else context.Add(NULL, 0, "USB capture", panel::kGood, "%ld ms blocks accepted", m_captureBufferMs);
+        else if (AlignedCapture()) context.Add(NULL, 0, "USB capture", panel::kGood, "%ld ms blocks accepted", m_captureBufferMs);
+        else context.Add(NULL, 0, "USB capture", panel::kPlain, "%ld ms accepted, default delay reported", m_captureBufferMs);
         if (stats.queuedInputSamples < 0) context.Add(NULL, 0, "Input alignment", panel::kPlain, "Not measured yet");
         else context.Add(NULL, 0, "Input alignment", panel::kPlain, "%.2f ms queued, %lld trimmed, reserve %ld",
                          stats.queuedInputSamples * millisecondsPerSample, stats.inputTrims, stats.inputReserve);
-        if (!m_inputOffsetUs && !m_outputOffsetUs) context.Add(NULL, 0, "Calibration", panel::kPlain, "Not calibrated (no offsets)");
+        if (!m_inputOffsetUs && !m_outputOffsetUs) context.Add(NULL, 0, "Calibration", panel::kPlain, "Built-in (no offsets)");
         else context.Add(NULL, 0, "Calibration", panel::kPlain, "Input %+ld us, output %+ld us", m_inputOffsetUs, m_outputOffsetUs);
 
         double bufferMs = m_bufferSize * millisecondsPerSample;

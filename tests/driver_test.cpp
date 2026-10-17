@@ -257,7 +257,7 @@ int main() {
     assert(DllCanUnloadNow() == S_FALSE);
     IASIO* driver = NULL;
     assert(factory->CreateInstance(NULL, CLSID_AsioForUmc22, (void**)&driver) == S_OK);
-    assert(driver->getDriverVersion() == 10000);
+    assert(driver->getDriverVersion() == 10001);
     factory->LockServer(TRUE);
     driver->Release();
     assert(DllCanUnloadNow() == S_FALSE);
@@ -298,10 +298,10 @@ int main() {
         assert(d.init(NULL) == ASIOTrue && d.createBuffers(&b, 1, 96, &cb) == ASE_OK);
         long input, output;
         assert(d.getLatencies(&input, &output) == ASE_OK);
-        assert(input == 96 + 480 + 12 && output == 96 - 24); // 250 us = 12 samples, -500 us = -24.
+        assert(input == 96 + 584 + 12 && output == 96 - 24); // 12.17 ms = 584; 250 us = 12, -500 us = -24.
         ASIOInternalBufferInfo internal = {};
         assert(d.future(kAsioGetInternalBufferSamples, &internal) == ASE_SUCCESS);
-        assert(internal.inputSamples == 492 && internal.outputSamples == 0);
+        assert(internal.inputSamples == 596 && internal.outputSamples == 0);
         assert(d.future(kAsioGetInternalBufferSamples, NULL) == ASE_InvalidParameter);
         assert(d.future(kAsioCanTimeInfo, NULL) == ASE_SUCCESS);
         assert(d.future(kAsioCanReportOverload, NULL) == ASE_SUCCESS);
@@ -439,7 +439,8 @@ int main() {
         }
     }
     // Capture hints are opt-in and rejection does not break initialization or
-    // claim a shorter measured latency. The panel distinguishes both outcomes.
+    // claim a shorter latency. Accepted 3 ms requests report the delay measured with
+    // input alignment for buffers up to 3 ms. The panel distinguishes the outcomes.
     for (DWORD error : {DWORD(ERROR_SUCCESS), DWORD(ERROR_NOT_SUPPORTED)}) {
         profileCaptureBuffer = L"3";
         captureHintError = error;
@@ -450,9 +451,15 @@ int main() {
         assert(d.init(NULL) == ASIOTrue && d.createBuffers(&b, 1, 96, &cb) == ASE_OK);
         assert(lastEngine->captureBufferMs == 3 && lastEngine->captureBufferError == error);
         long input, output;
-        assert(d.getLatencies(&input, &output) == ASE_OK && input == 576 && output == 96);
+        assert(d.getLatencies(&input, &output) == ASE_OK && input == (error ? 96 + 584 : 96 + 96 + 272) && output == 96);
         assert(d.controlPanel() == ASE_OK);
         assert(strstr(panelText, error ? "3 ms rejected" : "3 ms accepted"));
+        // Alignment keeps one buffer less when a 3 ms block fills exactly one buffer
+        // (144 samples at 48 kHz), and gains nothing that was measured at 4 ms.
+        assert(d.disposeBuffers() == ASE_OK && d.createBuffers(&b, 1, 144, &cb) == ASE_OK);
+        assert(d.getLatencies(&input, &output) == ASE_OK && input == (error ? 144 + 584 : 144 + 272));
+        assert(d.disposeBuffers() == ASE_OK && d.createBuffers(&b, 1, 192, &cb) == ASE_OK);
+        assert(d.getLatencies(&input, &output) == ASE_OK && input == 192 + 584);
         assert(d.start() == ASE_OK && d.stop() == ASE_OK);
     }
     for (const WCHAR* invalid : {L"-1", L"1", L"2", L"11", L"3ms", L"abc", L"99999999999999999999999999999999999"}) {
