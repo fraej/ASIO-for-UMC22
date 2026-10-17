@@ -89,19 +89,51 @@ DeviceName=USB Audio CODEC
 
 ## Latency
 
-![Where the latency comes from: the signal path, the round trip as a time line, and what each setting changes](docs/latency.svg)
+Latency is the delay between a sound entering the interface and that sound reaching the output when you monitor through the DAW. It includes the input path, the DAW's processing, and the output path. Plugins can add further delay. The UMC22's direct hardware monitoring bypasses the DAW and follows a different path.
 
-The latency reported to the DAW is made of what the driver can see:
+The driver reports an **input latency** and an **output latency** so the DAW can place recordings in time. These are estimates based on UMC22 measurements. A physical loopback test measures the actual round trip: audio goes from the DAW through an output, through a cable into an input, and back to the DAW. It measures the combined delay, not input and output separately.
 
-- **Input:** one buffer, plus the delay measured through a loopback cable on a UMC22 when the device uses Windows' USB Audio 1.0 driver (`usbaudio.sys`), converters included: 12.17 ms with default capture. With accepted `CaptureBufferMs=3`, input alignment leaves one more buffer plus 5.67 ms for buffers up to 2.5 ms, and 5.67 ms when one 3 ms block fills exactly one buffer (144 samples at 48 kHz). Other buffer sizes report the default.
-- **Output:** one buffer, queued while the previous one plays, plus one buffer per extra output buffer.
-- **Calibration:** DAWs shift recordings by the reported input plus output latency, so a correct total keeps recordings in time. On a UMC22 the built-in figures matched the measured round trip at 48–192 samples and every extra-buffer setting, within half a buffer, so no offsets are needed. Other interfaces, USB stacks or `CaptureBufferMs` values may differ: `InputLatencyOffset` and `OutputLatencyOffset` correct what the loopback tool measures, for every buffer size at once.
+![Rounded latency examples with 3 ms USB capture requests and one extra output buffer: about 14 ms total at 96 samples, or about 10 ms at 48 samples.](docs/latency.svg)
 
-At 96 samples and 48 kHz the report is 14.17 ms input and 2 ms output with default capture, 9.67 ms input with 3 ms capture, and 2 ms more output per extra output buffer. Each start can land up to half a buffer either side of the figure, depending on how the USB blocks line up. The driver also answers `kAsioGetInternalBufferSamples` with the part beyond the ASIO buffers.
+For example, at **48 kHz with 96-sample buffers**, each buffer holds **2 ms** of audio. With 3 ms USB capture requests, the driver estimates the input delay as:
+
+**2 ms to fill an input buffer + 2 ms allowance for queued input + about 6 ms estimated with the 3 ms USB setting = about 10 ms input.**
+
+The final 6 ms is an allowance for other USB and interface delays, based on UMC22 cable tests **with `CaptureBufferMs=3` active**. The 3 ms describes a USB capture batch, not a fixed extra wait for every sample. Its effect is already reflected in the measured allowance, so **do not add another 3 ms**. The allowance cannot be calculated from the buffer settings alone.
+
+One normal output buffer and one extra safety buffer then add **2 + 2 = 4 ms**, giving **about 10 + 4 = 14 ms total**.
+
+With **48-sample buffers at the same 48 kHz**, each buffer holds **1 ms** instead. Keeping the same 3 ms USB requests and one extra output buffer gives this comparison:
+
+| Part of the estimate | 96 samples: 2 ms per buffer | 48 samples: 1 ms per buffer |
+| --- | --- | --- |
+| Input | 2 + 2 + 6 = about 10 ms | 1 + 1 + 6 = about 8 ms |
+| Output, including one extra buffer | 2 + 2 = 4 ms | 1 + 1 = 2 ms |
+| Total | about 14 ms | about 10 ms |
+
+The smaller buffers reduce the estimated total by about 4 ms, but the program must finish each buffer in less time.
+
+All times in these examples and tables are **rounded to whole milliseconds**. These driver estimates use zero calibration offsets and assume Windows accepts the 3 ms capture requests. They exclude any extra latency added by the DAW or plugins. At **96 samples**, changing the capture and output safety settings gives:
+
+| USB capture setting | Extra output buffers | Input estimate | Output estimate | Reported total |
+| --- | ---: | ---: | ---: | ---: |
+| Windows default (`CaptureBufferMs=0`) | 0 | about 14 ms | 2 ms | about 16 ms |
+| `CaptureBufferMs=3` | 0 | about 10 ms | 2 ms | about 12 ms |
+| `CaptureBufferMs=3` | 1 | about 10 ms | 4 ms | about 14 ms |
+
+The third row is the SVG's 96-sample example. Its extra output buffer adds 2 ms of playback safety. Loopback tests on the measured UMC22 returned **about 13–14 ms** for that configuration: USB timing can differ between starts, so the reported estimate and a particular measurement need not match exactly. See the [precise measurements and latency model](docs/OPTIMIZATION_NOTES.md#built-in-latency-model) for other configurations.
+
+`CaptureBufferMs=3` requests smaller USB capture batches; it does **not** set the whole input delay to 3 ms. Smaller ASIO buffers reduce waiting but leave the DAW less time to finish processing. Extra output buffers add waiting on playback to tolerate a late callback.
+
+`InputLatencyOffset` and `OutputLatencyOffset` correct the numbers reported to the DAW, helping it place recordings accurately. They do **not** reduce the monitoring delay you hear. Check the loopback again after changing the device, sample rate, buffer size, capture setting or output safety; one calibration may not fit every configuration. Some variation between starts remains even after calibration.
 
 ### Input alignment
 
-Windows' USB audio driver delivers recorded input in blocks, and input recorded while playback starts would otherwise stay queued for the whole session. The driver keeps enough capture requests in flight to see 8 ms of recorded input (two to nine, depending on the buffer size) and counts, at every buffer, how many recorded packets are waiting. Every 40 ms it skips what waited beyond a reserve of at least 2 ms (and one buffer) during the whole window: that input always arrived long before it was needed. It only skips input that is already recorded, so it never waits for input. With Windows' default 10 ms blocks the minimum is close to zero and nothing is skipped; with `CaptureBufferMs=3` it removed 4–6 ms on a UMC22. A dropout soon after a skip adds one buffer to the reserve. The control panel shows the minimum queued input, the skipped buffers and the reserve.
+Windows can accumulate recorded audio while playback starts. That older audio can stay queued, making the DAW receive input later than necessary even with smaller USB capture requests.
+
+Input alignment looks for recorded buffers that consistently waited longer than needed and discards the excess. It keeps a small reserve to tolerate late input, and increases that reserve if a dropout follows a trim. It only discards audio that has already arrived. With Windows' default capture blocks it generally finds nothing to trim; with 3 ms capture requests it removed 4–6 ms of queued input on the tested UMC22.
+
+The control panel shows queued input, trimmed buffers and the reserve. **Queued input is one part of the input path, not the complete round-trip delay.** The [optimization notes](docs/OPTIMIZATION_NOTES.md#input-alignment-and-extra-output-buffers) describe the algorithm and its measurements.
 
 ### Measuring the round trip
 
