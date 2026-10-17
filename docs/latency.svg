@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 950" width="960" height="950" role="img" aria-labelledby="title description" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1150" width="960" height="1150" role="img" aria-labelledby="title description" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
   <title id="title">What adds up to the audio delay?</title>
-  <desc id="description">A rounded example for 96 samples at 48 kHz, accepted 3 ms USB capture requests and one extra output buffer. Each audio buffer holds 2 ms of sound. The driver estimates input as 2 ms to fill a buffer, 2 ms kept ready as a reserve, and about 6 ms of remaining delay estimated from UMC22 cable tests: about 10 ms input. Output adds a normal 2 ms buffer and an extra 2 ms safety buffer: 4 ms output. The total estimate is about 14 ms. The split is a model; a cable test measures only the combined delay. Other setups can differ.</desc>
+  <desc id="description">Rounded examples at 48 kHz, with accepted 3 ms USB capture requests and one extra output buffer. With 96 samples, each buffer holds 2 ms: 2 ms input buffer plus a 2 ms queue allowance plus about 6 ms estimated from cable tests gives about 10 ms input; two output buffers give 4 ms output, for about 14 ms total. With 48 samples, each buffer holds 1 ms: 1 plus 1 plus 6 gives about 8 ms input; 1 plus 1 gives 2 ms output, for about 10 ms total. These are the driver's estimates; a cable test measures only the combined delay. Other setups can differ.</desc>
   <style>
     .bg { fill: #ffffff; }
     .text { fill: #1f2328; }
@@ -21,7 +21,7 @@
       .output { fill: #3d1d00; stroke: #f0883e; }
     }
   </style>
-  <rect class="bg" width="960" height="950" rx="8"/>
+  <rect class="bg" width="960" height="1150" rx="8"/>
 
   <text x="28" y="36" class="text" font-size="25" font-weight="600">What adds up to the delay?</text>
   <text x="28" y="62" class="muted" font-size="15">Example: 96 samples at 48 kHz · 3 ms USB capture requests accepted · 1 extra output buffer</text>
@@ -42,14 +42,14 @@
   </g>
   <g class="text" font-size="16" font-weight="600">
     <text x="60" y="269">Fill an input buffer</text>
-    <text x="362" y="269">Keep a little input ready</text>
+    <text x="362" y="269">Allow for queued input</text>
     <text x="664" y="269">Other delay in the estimate</text>
   </g>
   <g class="muted" font-size="15">
     <text x="60" y="294">Collect one chunk of sound</text>
     <text x="60" y="315">before passing it to the program.</text>
-    <text x="362" y="294">Keep one chunk as a reserve</text>
-    <text x="362" y="315">in case new input arrives late.</text>
+    <text x="362" y="294">One more buffer of waiting</text>
+    <text x="362" y="315">included in the driver's estimate.</text>
     <text x="664" y="294">USB and interface delays, estimated</text>
     <text x="664" y="315">with the 3 ms USB setting active.</text>
   </g>
@@ -80,6 +80,24 @@
   <text x="28" y="690" class="muted" font-size="14">Cable tests measured about 13–14 ms for this setup. Timing can vary between starts.</text>
   <text x="28" y="712" class="muted" font-size="14">The test measures the combined delay. The input/output split above is the driver's model.</text>
 
+  <text x="28" y="751" class="text" font-size="18" font-weight="600">3. Now use 48 samples instead</text>
+  <text x="28" y="776" class="muted" font-size="14">Same 48 kHz, 3 ms USB requests and 1 extra output buffer. Each buffer now holds 1 ms.</text>
+  <rect class="input" x="28" y="790" width="280" height="88" rx="7"/>
+  <rect class="output" x="340" y="790" width="280" height="88" rx="7"/>
+  <rect class="neutral" x="652" y="790" width="280" height="88" rx="7"/>
+  <g class="text" font-size="15" font-weight="600">
+    <text x="44" y="817">Input estimate</text>
+    <text x="356" y="817">Output estimate</text>
+    <text x="668" y="817">Total estimate</text>
+  </g>
+  <g class="text" font-size="21" font-weight="600">
+    <text x="44" y="853">1 + 1 + 6 = about 8 ms</text>
+    <text x="356" y="853">1 + 1 = 2 ms</text>
+    <text x="668" y="853">8 + 2 = about 10 ms</text>
+  </g>
+  <text x="28" y="904" class="muted" font-size="14">About 4 ms less overall delay than the 96-sample example, with less time to finish each buffer.</text>
+
+  <g transform="translate(0 200)">
   <text x="28" y="751" class="text" font-size="18" font-weight="600">What the settings change</text>
   <g font-size="14">
     <text x="44" y="786" class="text" font-weight="600">BufferSize</text>
@@ -89,10 +107,11 @@
     <text x="278" y="821" class="text">Changes USB batching. Its effect is included in the measured allowance above.</text>
     <line x1="28" y1="835" x2="932" y2="835" class="divider"/>
     <text x="44" y="856" class="text" font-weight="600">ExtraOutputBuffers</text>
-    <text x="278" y="856" class="text">Adds playback safety. Each extra buffer adds 2 ms in this example.</text>
+    <text x="278" y="856" class="text">Adds playback safety: 2 ms per extra buffer at 96 samples; 1 ms at 48 samples.</text>
     <line x1="28" y1="870" x2="932" y2="870" class="divider"/>
     <text x="44" y="891" class="text" font-weight="600">Latency offsets</text>
     <text x="278" y="891" class="text">Correct recording placement. They do not make sound arrive sooner.</text>
   </g>
-  <text x="28" y="930" class="muted" font-size="14">This is one UMC22 example. Other settings or interfaces can behave differently; measure your setup.</text>
+  <text x="28" y="930" class="muted" font-size="14">These are UMC22 examples. Other settings or interfaces can behave differently; measure your setup.</text>
+  </g>
 </svg>
