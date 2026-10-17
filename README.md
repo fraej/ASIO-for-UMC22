@@ -93,17 +93,23 @@ Latency is the delay between a sound entering the interface and that sound reach
 
 The driver reports an **input latency** and an **output latency** so the DAW can place recordings in time. These are estimates based on UMC22 measurements. A physical loopback test measures the actual round trip: audio goes from the DAW through an output, through a cable into an input, and back to the DAW. It measures the combined delay, not input and output separately.
 
-![Audio path through the DAW, an example of reported versus measured latency, and what each setting changes](docs/latency.svg)
+![Rounded example: 2 ms input buffer plus 2 ms input reserve plus 6 ms from measurements gives about 10 ms input. Two 2 ms output buffers add 4 ms, for about 14 ms total.](docs/latency.svg)
 
-For example, at **48 kHz with 96-sample buffers**, each buffer holds **2 ms** of audio. These driver estimates use zero calibration offsets and assume Windows accepts the 3 ms capture requests. They exclude any extra latency added by the DAW or plugins:
+For example, at **48 kHz with 96-sample buffers**, each buffer holds **2 ms** of audio. With 3 ms USB capture requests, the driver estimates the input delay as:
+
+**2 ms to fill an input buffer + 2 ms kept ready as a reserve + about 6 ms from measurements = about 10 ms input.**
+
+The final 6 ms is an allowance for other USB and interface delays, based on UMC22 cable tests. It accounts for the remaining delay in the model; it cannot be calculated from the buffer size alone. One normal output buffer and one extra safety buffer then add **2 + 2 = 4 ms**, giving **about 10 + 4 = 14 ms total**.
+
+All times in this example and table are **rounded to whole milliseconds**. These driver estimates use zero calibration offsets and assume Windows accepts the 3 ms capture requests. They exclude any extra latency added by the DAW or plugins:
 
 | USB capture setting | Extra output buffers | Input estimate | Output estimate | Reported total |
 | --- | ---: | ---: | ---: | ---: |
-| Windows default (`CaptureBufferMs=0`) | 0 | 14.17 ms | 2.00 ms | 16.17 ms |
-| `CaptureBufferMs=3` | 0 | 9.67 ms | 2.00 ms | 11.67 ms |
-| `CaptureBufferMs=3` | 1 | 9.67 ms | 4.00 ms | 13.67 ms |
+| Windows default (`CaptureBufferMs=0`) | 0 | about 14 ms | 2 ms | about 16 ms |
+| `CaptureBufferMs=3` | 0 | about 10 ms | 2 ms | about 12 ms |
+| `CaptureBufferMs=3` | 1 | about 10 ms | 4 ms | about 14 ms |
 
-The third row is the SVG's example. Its extra output buffer adds 2 ms of playback safety. Loopback tests on the measured UMC22 returned **12.67 and 13.67 ms** for that configuration: USB timing can differ between starts, so the reported estimate and a particular measurement need not match exactly. See the [measurements and latency model](docs/OPTIMIZATION_NOTES.md#built-in-latency-model) for other configurations.
+The third row is the SVG's example. Its extra output buffer adds 2 ms of playback safety. Loopback tests on the measured UMC22 returned **about 13–14 ms** for that configuration: USB timing can differ between starts, so the reported estimate and a particular measurement need not match exactly. See the [precise measurements and latency model](docs/OPTIMIZATION_NOTES.md#built-in-latency-model) for other configurations.
 
 `CaptureBufferMs=3` requests smaller USB capture batches; it does **not** set the whole input delay to 3 ms. Smaller ASIO buffers reduce waiting but leave the DAW less time to finish processing. Extra output buffers add waiting on playback to tolerate a late callback.
 
