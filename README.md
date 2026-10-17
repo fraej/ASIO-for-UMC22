@@ -89,6 +89,8 @@ DeviceName=USB Audio CODEC
 
 ## Latency
 
+![Where the latency comes from: the signal path, the round trip as a time line, and what each setting changes](docs/latency.svg)
+
 The latency reported to the DAW is made of what the driver can see:
 
 - **Input:** one buffer, plus the delay measured through a loopback cable on a UMC22 when the device uses Windows' USB Audio 1.0 driver (`usbaudio.sys`), converters included: 12.17 ms with default capture. With accepted `CaptureBufferMs=3`, input alignment leaves one more buffer plus 5.67 ms for buffers up to 2.5 ms, and 5.67 ms when one 3 ms block fills exactly one buffer (144 samples at 48 kHz). Other buffer sizes report the default.
